@@ -1,0 +1,12 @@
+{
+  "name": "ntbk",
+  "version": "0.0.1",
+  "author": "Qiming Fang <qf26@cornell.edu>",
+  "description": "A test harness",
+  "dependencies" : {
+    "wd"   :  "*"
+  },
+  "engines": {
+    "node": ">=0.8"
+  }
+}
