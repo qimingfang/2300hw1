@@ -1,3 +1,10 @@
+/**
+ * Test Harness for info2300 HW1
+ * Qiming Fang (qf26)
+ *
+ * February 18, 2013
+ */
+
 var arguments = process.argv.splice(2);
 if (arguments.length < 2){
   console.log("Format node test.js [test url] [browser_id]");
@@ -9,9 +16,12 @@ var assert = require('assert');
 
 var test_url = arguments[0]; 
 var browser, version;
+var response = [];  // this is where the test results will be kept
+var test_id = 1;        // tests start with id = 1
+
+var expected_fonts = ["courier,monospace", "times new roman,serif", "arial,sans-serif"];
 
 var caps;
-console.log(test_url);
 
 switch (arguments[1]){
   case "firefox":
@@ -58,13 +68,15 @@ browser.init(caps, function() {
   browser.get(test_url, function() {
     test_color(function(){
       test_font_family(function(){
-        test_text_decoration(function(){
-          test_replace(function(){
-            browser.quit();
-            console.log("Test done!");
+        test_font_size(function(){
+            test_text_decoration(function(){
+              test_replace(function(){
+                browser.quit();
+                console.log(response);
+              });
+            });
           });
         });
-      });
     });
   });
 });
@@ -81,7 +93,6 @@ var test_replace = function(cb){
         browser.elementsByClassName("matched", function(err, elems){
           assert.equal(elems.length, 1, "After replacing Lorem with Qiming, there should be 1 match. Found "
             + elems.length + " matches");
-          console.log(elems);
           cb();
         });
       });
@@ -98,6 +109,12 @@ var insert_text_into_input_box = function(elem_id, text, cb){
   });
 }
 
+var insert_text_into_input_box_by_xpath = function(xpath, text, cb){
+    browser.elementByXPath(xpath, function(err, el){
+        el.type(text, cb);
+    });
+}
+
 /**
  * Clicks the button given by XPATH @elem_xpath
  */
@@ -108,24 +125,199 @@ var click_button = function(elem_xpath, cb){
 }
 
 /**
- * TODO
+ * Tests that the text-decoration checkboxes do as they claim
  */
 var test_text_decoration = function(cb){
-  cb();
+    test_font_weight(false, function(){        
+        test_italic(false, function(){
+            click_button("//input[@value='bold']", function(){
+                test_font_weight(true, function(){
+                    click_button("//input[@value='italic']", function(){
+                        test_italic(true, cb);
+                    })
+                })
+            })
+        })
+    })
 }
 
 /**
- * TODO
+ * Tests whether #text become bold when @expected, and
+ * when it remains non-bold when !@expected
  */
-var test_font_size = function(cb){
-  cb();
+var test_font_weight = function(expected, cb){
+    browser.elementById("text", function(err, el){
+        el.getComputedCss("font-weight", function(err, fw){
+            try{
+                assert.equal(fw, expected?"700":"400");
+                response.push({test: test_id++, msg: "passed"});
+            } catch (err){
+                response.push({test: test_id++, msg: 
+                    (expected?"Text should have been bolded but was not ("+fw+")"
+                        :"Text should not have been bolded was was")
+                });
+            } finally{
+                cb();
+            }
+        });
+    });
 }
 
 /**
- * TODO
+ * Tests whether #text become italic when @expected, and
+ * when it remains non-italic when !@expected
+ */
+var test_italic = function(expected, cb){
+    browser.elementById("text", function(err, el){
+        el.getComputedCss("font-style", function(err, fw){
+            try{
+                assert.equal(fw, expected?"italic":"normal");
+                response.push({test: test_id++, msg: "passed"});
+            } catch (err){
+                response.push({test: test_id++, msg: 
+                    (expected?"Text should have been italic but was not ("+fw+")"
+                        :"Text should not have been italic was was")
+                });
+            } finally{
+                cb();
+            }
+        });
+    });
+}
+
+/**
+ * Tests whether the font family radio buttons do as they claim
  */
 var test_font_family = function(cb){
-  cb();
+    browser.elementById("text", function(err, el){
+        el.getComputedCss("font-family", function(err, ff){
+            try {
+                assert.equal(ff, '"Comic Sans MS"');
+                response.push({test: test_id++, msg: "passed"});
+            } catch(err){
+                response.push({test: test_id++, msg: "Text should have started "
+                    + "with font family Comic Sans MS, but instead was " + ff
+                });
+            } finally {
+                browser.elementsByXPath("//input[@name='family']", function(err, elems){
+                    recursively_test_all_font_options(elems, 0, cb);
+                });
+            }
+        });
+    });
+}
+
+/**
+ * For each element in @elems
+ * apply test, and move on to the next.
+ * The reason why this is recursive is because of javascript's nature of
+ * nested callbacks 
+ */
+function recursively_test_all_font_options(elems, index, cb){
+    if (index == elems.length)
+        return cb();
+
+    browser.clickElement(elems[index], function(err, c){
+        browser.elementById("text", function(err, el){
+            el.getComputedCss("font-family", function(err, ff){
+                try{
+                    assert.equal(ff, expected_fonts[index]);
+                    response.push({test: test_id++, msg: "passed"});
+                } catch (err){
+                    response.push({test: test_id++, msg: 
+                        "Expected font-family to be " + expected_fonts[index]
+                        + " but font-family was actually " + ff
+                    });
+                } finally{
+                    recursively_test_all_font_options(elems, index+1, cb);
+                }
+            });
+        });
+    });
+}
+
+/**
+ * Tests to make sure that the font-size box does what it is supposed
+ * to do (in that it handles errors correctly as well)
+ */
+var test_font_size = function(cb){
+    clear_textbox(function(){
+        insert_text_into_input_box_by_xpath("//input[@name='font']", "45", function(){
+            browser.elementById("text", function(err, el){
+                el.getComputedCss("font-size", function(err, fsize){
+                    try{
+                        assert.equal(fsize, "45px");
+                        response.push({test: test_id++, msg: "passed"});
+                    } catch (err){
+                        response.push({test: test_id++, msg: 
+                            "Expected font-size to be 45, but font-size was " + fsize
+                        });
+                    } finally{
+                        test_font_size_error_exists("45", false, function(){
+                            test_font_size_cornercases(cb);
+                        })
+                    }
+
+
+                });
+            });
+        });
+    });
+}
+
+/**
+ * Presses backspace 3 times to remove any content in the input box
+ */
+var clear_textbox = function(cb){
+    insert_text_into_input_box_by_xpath("//input[@name='font']", "\uE003\uE003\uE003", cb);
+}
+
+/**
+ * Insert text of size 100 and 4
+ * Expect error messages to trigger
+ */
+var test_font_size_cornercases = function(cb){
+    clear_textbox(function(){
+        insert_text_into_input_box_by_xpath("//input[@name='font']", "100", function(){
+            test_font_size_error_exists("100", true, function(){
+                clear_textbox(function(){
+                    insert_text_into_input_box_by_xpath("//input[@name='font']", "4", function(){
+                        test_font_size_error_exists("4", true, cb);
+                    });
+                });
+            });
+        });
+    });
+}
+
+/**
+ * if @expected then we expect an error message at #sizeWarning
+ * else, we expect no error message
+ */
+var test_font_size_error_exists = function(num_chars, expected, cb){
+    browser.elementById("sizeWarning", function(err, el){
+        browser.text(el, function(err, txt){
+            if (expected){
+                if (txt.length == 0){
+                    response.push({test: test_id++, msg: 
+                        num_chars + " into font-size should have generated error"
+                    });
+                } else {
+                    response.push({test: test_id++, msg: "passed"});
+                }
+            } else {
+                if (txt.length == 0){
+                    response.push({test: test_id++, msg: "passed"});
+                } else {
+                    response.push({test: test_id++, msg: 
+                        num_chars + " into font-size should not have generated error"
+                    });
+                }
+            }
+
+            cb();
+        });
+    });
 }
 
 /**
@@ -170,30 +362,21 @@ var test_color_radio = function(xpath, expected, cb){
  */
 var assert_color = function(elem_id, expected, cb){
   browser.elementById(elem_id, function(err, el){
-    assert_color_for_element(el, expected, cb);
-  });
-}
-
-/**
- * Given any generic DOM element @el, and expercted
- * color, verifies that @el has the expected color
- *
- * TODO: support rbga colors
- */
-var assert_color_for_element = function(el, expected, cb){
-  el.getComputedCss("color", function(err, c){
-
-    var actual_color;
-    if (c.match(/rbga/)){
-      console.log("rbga color: " + c);
-    }
-
-    if (c.match(/rgb(?!a)/)){
-      actual_color = new RGBColor(c).toHex();
-    }
-
-    assert.equal(actual_color, expected, "Color should be initially " + expected + " but is actually " + actual_color);
-    cb();
+    el.getComputedCss("color", function(err, c){
+        var actual_color = new RGBColor(c).toHex();
+        try {
+            assert.equal(actual_color, expected);
+            response.push({test: test_id++, msg: "passed"});
+        } catch (err){
+            response.push({test: test_id++, msg:
+                "Color should be " 
+                + expected 
+                + " but is actually " + actual_color
+            });
+        } finally{
+            cb();
+        }
+    });
   });
 }
 
