@@ -20,7 +20,7 @@ var response = [];  // this is where the test results will be kept
 var test_id = 1;        // tests start with id = 1
 
 var expected_fonts = ["courier,monospace", "times new roman,serif", "arial,sans-serif"];
-
+var minus_points = 0;
 var caps;
 
 switch (arguments[1]){
@@ -71,6 +71,8 @@ browser.init(caps, function() {
         test_font_size(function(){
             test_text_decoration(function(){
               test_replace(function(){
+                response.push({test: test_id++, msg: 
+                    "Tests Completed: Total Score: "+(100-minus_points) });
                 browser.quit();
                 console.log(response);
               });
@@ -87,13 +89,24 @@ browser.init(caps, function() {
  * Verify that 'Qiming' exists once and is highlighted
  */
 var test_replace = function(cb){
+    var loss_amount = 10;
   insert_text_into_input_box("original", "Lorem", function(){
     insert_text_into_input_box("newtext", "Qiming", function(){
       click_button("//input[@name='save' and @value='Replace']", function(){
         browser.elementsByClassName("matched", function(err, elems){
-          assert.equal(elems.length, 1, "After replacing Lorem with Qiming, there should be 1 match. Found "
-            + elems.length + " matches");
-          cb();
+            try{
+                assert.equal(elems.length, 1, "After replacing Lorem with Qiming, there should be 1 match. Found "
+                + elems.length + " matches");
+            } 
+            catch(err) {
+                minus_points = minus_points + loss_amount;
+                response.push({test: test_id++, msg: 
+                    "Text Replace did not work. "
+                    + " Grade deduction " + loss_amount + " points"});
+            } 
+            finally {
+                cb();
+            }     
         });
       });
     });
@@ -128,12 +141,13 @@ var click_button = function(elem_xpath, cb){
  * Tests that the text-decoration checkboxes do as they claim
  */
 var test_text_decoration = function(cb){
-    test_font_weight(false, function(){        
-        test_italic(false, function(){
+    var loss_val = new Array(3,3,4,4);
+    test_font_weight(loss_val[0],false, function(){        
+        test_italic(loss_val[1], false, function(){
             click_button("//input[@value='bold']", function(){
-                test_font_weight(true, function(){
+                test_font_weight(loss_val[2],true, function(){
                     click_button("//input[@value='italic']", function(){
-                        test_italic(true, cb);
+                        test_italic(loss_val[3],true, cb);
                     })
                 })
             })
@@ -145,16 +159,18 @@ var test_text_decoration = function(cb){
  * Tests whether #text become bold when @expected, and
  * when it remains non-bold when !@expected
  */
-var test_font_weight = function(expected, cb){
+var test_font_weight = function(loss_amount,expected, cb){
     browser.elementById("text", function(err, el){
         el.getComputedCss("font-weight", function(err, fw){
             try{
                 assert.equal(fw, expected?"700":"400");
                 response.push({test: test_id++, msg: "passed"});
             } catch (err){
+                minus_points = minus_points + loss_amount;
                 response.push({test: test_id++, msg: 
                     (expected?"Text should have been bolded but was not ("+fw+")"
                         :"Text should not have been bolded was was")
+                    + " grade deduction " + loss_amount + " points"
                 });
             } finally{
                 cb();
@@ -167,16 +183,18 @@ var test_font_weight = function(expected, cb){
  * Tests whether #text become italic when @expected, and
  * when it remains non-italic when !@expected
  */
-var test_italic = function(expected, cb){
+var test_italic = function(loss_amount,expected, cb){
     browser.elementById("text", function(err, el){
         el.getComputedCss("font-style", function(err, fw){
             try{
                 assert.equal(fw, expected?"italic":"normal");
                 response.push({test: test_id++, msg: "passed"});
             } catch (err){
+                minus_points = minus_points + loss_amount;
                 response.push({test: test_id++, msg: 
                     (expected?"Text should have been italic but was not ("+fw+")"
                         :"Text should not have been italic was was")
+                    + " grade deduction " + loss_amount + " points"
                 });
             } finally{
                 cb();
@@ -189,18 +207,21 @@ var test_italic = function(expected, cb){
  * Tests whether the font family radio buttons do as they claim
  */
 var test_font_family = function(cb){
+    var loss_val = new Array(2,3);
     browser.elementById("text", function(err, el){
         el.getComputedCss("font-family", function(err, ff){
             try {
                 assert.equal(ff, '"Comic Sans MS"');
                 response.push({test: test_id++, msg: "passed"});
             } catch(err){
+                minus_points = minus_points + loss_val[0];
                 response.push({test: test_id++, msg: "Text should have started "
                     + "with font family Comic Sans MS, but instead was " + ff
+                    + " grade deduction " + loss_val[0] + " points"
                 });
             } finally {
                 browser.elementsByXPath("//input[@name='family']", function(err, elems){
-                    recursively_test_all_font_options(elems, 0, cb);
+                    recursively_test_all_font_options(loss_val[1],elems, 0, cb);
                 });
             }
         });
@@ -213,7 +234,7 @@ var test_font_family = function(cb){
  * The reason why this is recursive is because of javascript's nature of
  * nested callbacks 
  */
-function recursively_test_all_font_options(elems, index, cb){
+function recursively_test_all_font_options(loss_val,elems, index, cb){
     if (index == elems.length)
         return cb();
 
@@ -224,12 +245,14 @@ function recursively_test_all_font_options(elems, index, cb){
                     assert.equal(ff, expected_fonts[index]);
                     response.push({test: test_id++, msg: "passed"});
                 } catch (err){
+                    minus_points = minus_points + loss_val;
                     response.push({test: test_id++, msg: 
                         "Expected font-family to be " + expected_fonts[index]
                         + " but font-family was actually " + ff
+                        + " grade deduction " + loss_val + " points"
                     });
                 } finally{
-                    recursively_test_all_font_options(elems, index+1, cb);
+                    recursively_test_all_font_options(loss_val,elems, index+1, cb);
                 }
             });
         });
@@ -241,6 +264,7 @@ function recursively_test_all_font_options(elems, index, cb){
  * to do (in that it handles errors correctly as well)
  */
 var test_font_size = function(cb){
+    var loss_val = new Array(2,3,4);
     clear_textbox(function(){
         insert_text_into_input_box_by_xpath("//input[@name='font']", "45", function(){
             browser.elementById("text", function(err, el){
@@ -249,12 +273,14 @@ var test_font_size = function(cb){
                         assert.equal(fsize, "45px");
                         response.push({test: test_id++, msg: "passed"});
                     } catch (err){
+                        minus_points = minus_points + loss_val[0];
                         response.push({test: test_id++, msg: 
                             "Expected font-size to be 45, but font-size was " + fsize
+                            + " grade deduction " + loss_val[0] + " points"
                         });
                     } finally{
-                        test_font_size_error_exists("45", false, function(){
-                            test_font_size_cornercases(cb);
+                        test_font_size_error_exists(loss_val[1],"45", false, function(){
+                            test_font_size_cornercases(loss_val[2],cb);
                         })
                     }
 
@@ -276,13 +302,13 @@ var clear_textbox = function(cb){
  * Insert text of size 100 and 4
  * Expect error messages to trigger
  */
-var test_font_size_cornercases = function(cb){
+var test_font_size_cornercases = function(loss_amount, cb){
     clear_textbox(function(){
         insert_text_into_input_box_by_xpath("//input[@name='font']", "100", function(){
-            test_font_size_error_exists("100", true, function(){
+            test_font_size_error_exists(loss_amount, "100", true, function(){
                 clear_textbox(function(){
                     insert_text_into_input_box_by_xpath("//input[@name='font']", "4", function(){
-                        test_font_size_error_exists("4", true, cb);
+                        test_font_size_error_exists(loss_amount, "4", true, cb);
                     });
                 });
             });
@@ -294,13 +320,15 @@ var test_font_size_cornercases = function(cb){
  * if @expected then we expect an error message at #sizeWarning
  * else, we expect no error message
  */
-var test_font_size_error_exists = function(num_chars, expected, cb){
+var test_font_size_error_exists = function(loss_amount,num_chars, expected, cb){
     browser.elementById("sizeWarning", function(err, el){
         browser.text(el, function(err, txt){
             if (expected){
                 if (txt.length == 0){
+                    minus_points = minus_points + loss_amount;
                     response.push({test: test_id++, msg: 
                         num_chars + " into font-size should have generated error"
+                        + " grade deduction " + loss_amount + " points"
                     });
                 } else {
                     response.push({test: test_id++, msg: "passed"});
@@ -309,8 +337,10 @@ var test_font_size_error_exists = function(num_chars, expected, cb){
                 if (txt.length == 0){
                     response.push({test: test_id++, msg: "passed"});
                 } else {
+                    minus_points = minus_points + loss_amount;
                     response.push({test: test_id++, msg: 
                         num_chars + " into font-size should not have generated error"
+                        + " grade deduction " + loss_amount + " points"
                     });
                 }
             }
@@ -327,14 +357,15 @@ var test_font_size_error_exists = function(num_chars, expected, cb){
  * verify that color is blue
  */
 var test_color = function(cb){
+    var loss_val = new Array(2,5,5);
     // initially text should be green
-    assert_color("text", "#008000", function() {
+    assert_color(loss_val[0],"text", "#008000", function() {
 
       // click on the red radio button
-      test_color_radio("//div[@id='color']/input[@value='Red']", "#ff0000", function(){
+      test_color_radio(loss_val[1],"//div[@id='color']/input[@value='Red']", "#ff0000", function(){
 
         // click on the blue radio button
-        test_color_radio("//div[@id='color']/input[@value='Blue']", "#0000ff", function(){
+        test_color_radio(loss_val[2],"//div[@id='color']/input[@value='Blue']", "#0000ff", function(){
 
           //execute callback
           cb();
@@ -348,10 +379,10 @@ var test_color = function(cb){
  * Given button at XPATH @xpath, tests whether DOM element with id 'text'
  * changes to color @expected after the radio button is selected
  */
-var test_color_radio = function(xpath, expected, cb){
+var test_color_radio = function(loss_amount, xpath, expected, cb){
   browser.elementByXPath(xpath, function(err, el){
     browser.clickElement(el, function(err, c){
-      assert_color("text", expected, cb);
+      assert_color(loss_amount, "text", expected, cb);
     });
   });
 }
@@ -360,7 +391,7 @@ var test_color_radio = function(xpath, expected, cb){
  * Given DOM element id @elem_id, and expected color,
  * verifies that the DOM element has that color
  */
-var assert_color = function(elem_id, expected, cb){
+var assert_color = function(loss_amount, elem_id, expected, cb){
   browser.elementById(elem_id, function(err, el){
     el.getComputedCss("color", function(err, c){
         var actual_color = new RGBColor(c).toHex();
@@ -368,10 +399,12 @@ var assert_color = function(elem_id, expected, cb){
             assert.equal(actual_color, expected);
             response.push({test: test_id++, msg: "passed"});
         } catch (err){
+            minus_points = minus_points + loss_amount;
             response.push({test: test_id++, msg:
                 "Color should be " 
                 + expected 
                 + " but is actually " + actual_color
+                + " grade deduction " + loss_amount + " points"
             });
         } finally{
             cb();
