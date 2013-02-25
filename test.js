@@ -321,31 +321,45 @@ var test_font_size_cornercases = function(loss_amount, cb){
  * else, we expect no error message
  */
 var test_font_size_error_exists = function(loss_amount,num_chars, expected, cb){
-    browser.elementById("sizeWarning", function(err, el){
-        browser.text(el, function(err, txt){
-            if (expected){
-                if (txt.length == 0){
-                    minus_points = minus_points + loss_amount;
-                    response.push({test: test_id++, msg: 
-                        num_chars + " into font-size should have generated error"
-                        + " grade deduction " + loss_amount + " points"
-                    });
-                } else {
-                    response.push({test: test_id++, msg: "passed"});
-                }
-            } else {
-                if (txt.length == 0){
-                    response.push({test: test_id++, msg: "passed"});
-                } else {
-                    minus_points = minus_points + loss_amount;
-                    response.push({test: test_id++, msg: 
-                        num_chars + " into font-size should not have generated error"
-                        + " grade deduction " + loss_amount + " points"
-                    });
-                }
-            }
+    browser.elementById("text", function(err, el){
+        el.getComputedCss("font-size", function(err, fsize_string){
 
-            cb();
+            var fsize = parseInt(fsize_string.substring(0, fsize_string.length-2));
+            if (fsize < 8 || fsize > 80){
+                minus_points = minus_points + loss_amount;
+                response.push({test: test_id++, msg: "After changing to " + num_chars + ", font-size should "
+                    + "still be between 8 and 80 characters"
+                    +" font-size error"
+                                + " grade deduction " + loss_amount + " points"
+                            });
+            }
+            browser.elementById("sizeWarning", function(err, el){
+                browser.text(el, function(err, txt){
+                    if (expected){
+                        if (txt.length == 0){
+                            minus_points = minus_points + loss_amount;
+                            response.push({test: test_id++, msg: 
+                                num_chars + " into font-size should have generated error"
+                                + " grade deduction " + loss_amount + " points"
+                            });
+                        } else {
+                            response.push({test: test_id++, msg: "passed"});
+                        }
+                    } else {
+                        if (txt.length == 0){
+                            response.push({test: test_id++, msg: "passed"});
+                        } else {
+                            minus_points = minus_points + loss_amount;
+                            response.push({test: test_id++, msg: 
+                                num_chars + " into font-size should not have generated error"
+                                + " grade deduction " + loss_amount + " points"
+                            });
+                        }
+                    }
+
+                    cb();
+                });
+            });
         });
     });
 }
