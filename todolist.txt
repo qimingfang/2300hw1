@@ -1,0 +1,22 @@
+//todo
+
+1. check for alert box when inputting incorrect font size
+
+2. check italic bold .. bold italic... you get it etc..
+
+3. replace does not need to have "matched"... lets search for Qiming Text
+
+4. replace test for brackets 
+
+5. save file works correctly and assign appropriate bonus points
+
+6. extrapolate grading amounts to be on the top (array at top)
+
+7. add test descriptoins
+
+8. CMS downloads
+
+9. bash script to run all 
+
+10. export results/comments to CSV
+
