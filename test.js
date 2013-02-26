@@ -6,8 +6,8 @@
  */
 
 var arguments = process.argv.splice(2);
-if (arguments.length < 2){
-  console.log("Format node test.js [test url] [browser_id] [optional: netid to start from]");
+if (arguments.length < 3){
+  console.log("Format node test.js [test url] [browser_id] [netid to start from]");
   process.exit(1);
 }
 
@@ -17,7 +17,7 @@ var fs = require('fs');
 var util = require('util');
 
 var test_url = arguments[0];
-var netid = arguments.length == 3 ? arguments[2] : undefined;
+var netid = arguments[2];
 
 var browser, version;
 var response = [];  // this is where the test results will be kept
@@ -68,6 +68,8 @@ browser.on('command', function(meth, path){
  * test_text_decoration
  * test_replace
  */
+
+ /*
 var dir = "/Applications/MAMP/htdocs/2300_test/";
 fs.writeFile(result_file, "netid, score, comments\n", function (err) {
     fs.readdir(dir + "submissions", function(err, files){
@@ -83,45 +85,41 @@ fs.writeFile(result_file, "netid, score, comments\n", function (err) {
         })
     });
 });
+*/
 
+main_test(netid, function(){
+    console.log("Done with test for " + netid);
+})
 
-function main_test(idx, files, cb){
-    if (idx == files.length) cb();
-    else {
-        test_id = 1;
-        response = [];
-        minus_points = 0;
+function main_test(netid, cb){
+    var path = test_url + "/2300_test/submissions/" + netid + "/index.php";
+    caps.name = netid;
+    console.log ("Testing: " + netid);
 
-        var path = test_url + "/2300_test/submissions/" + files[idx] + "/index.php";
-        caps.name = files[idx];
-        console.log ("Testing: " + files[idx]);
+    browser.init(caps, function() {
+        browser.get(path, function() {
+            test_color(function(){
+                test_font_family(function(){
+                    test_font_size(function(){
+                        test_text_decoration(function(){
+                            test_replace(function(){
+                                browser.quit(function(){
+                                    var resp = JSON.stringify(response) + "\n";
+                                    var to_write = netid + "," + (100-minus_points) + "," + resp;
 
-        browser.init(caps, function() {
-            browser.get(path, function() {
-                //test_color(function(){
-                    //test_font_family(function(){
-                        //test_font_size(function(){
-                            //test_text_decoration(function(){
-                                test_replace(function(){
-                                    browser.quit(function(){
-                                        var resp = JSON.stringify(response) + "\n";
-                                        var to_write = files[idx] + "," + (100-minus_points) + "," + resp;
-
-                                        fs.appendFile(result_file, to_write, function (err) {
-                                          main_test(idx+1, files, cb);
-                                          console.log(to_write);
-
-                                        });
-
+                                    fs.appendFile(result_file, to_write, function (err) {
+                                        console.log(to_write);
+                                        cb();
                                     });
+
                                 });
-                            //});
-                        //});
-                    //});
-                //});
-            })
+                            });
+                        });
+                    });
+                });
+            });
         })
-    }
+    })
 }
 
 var test_save = function(cb){
@@ -131,7 +129,11 @@ var test_save = function(cb){
 /**
  * Test of replace functionality:
  * Replace text 'Lorem' with text 'Qiming' 
- * Verify that 'Qiming' exists once and is highlighted
+ * Verify that 'Qiming' exists
+ * Replace ipsum with "Qiming<"
+ * Verify that '<' does not exist
+ * Replace dolor with "Qiming<>"
+ * Verify that '>' doesnt exist
  */
 var test_replace = function(cb){
   var loss_amount = 10;
