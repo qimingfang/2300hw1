@@ -61,29 +61,51 @@ browser.on('command', function(meth, path){
   //console.log(' > \x1b[33m%s\x1b[0m: %s', meth, path);
 });
 
+/**
+ * 1 point for initial font = comic sans
+ * 2 points for each font family change
+ */
+var test_font_color_points = new Array (1, 2);
+
+/**
+ * 2 point that text should initially be unbold and unitalic
+ * 4 points that text is bold and not italic when bold checked
+ * 4 points that text is bold and italic when both checked
+ * 2 point that text is bold and not italic when italic unchecked
+ * 2 point that text is unbold and unitalic when both unchecked
+ */
+var test_decoration_points = new Array(1, 1, 3, 1, 1, 3, 1, 1, 1, 1);
+
+/**
+ * 1 point that font is initially 15
+ * 4 points for handling font size = 1
+ * 4 points for handling font size = 19 (no error)
+ * 4 points for handling font size = 190
+ */
+var test_font_size_points = new Array(1, 4);
+
+/**
+ * 2 points for color initially green
+ * 5 points for color = red when red radio clicked
+ * 5 points for color = blue when blue radio clicked
+ */
+var test_color_points = new Array(2,5,5);
+
+/**
+ * 8 points for correct replace
+ * 6 points for handling input with '<'
+ * 6 points for handling input with '>'
+ */
+var replace_points = new Array(8,6,6);
+
 /** 
  * Main Test. Runs through tests in order:
  * test_color
  * test_font_family
  * test_text_decoration
  * test_replace
+ * test_bonus
  */
-
- /*
-var dir = "/Applications/MAMP/htdocs/2300_test/";
-fs.writeFile(result_file, "netid, score, comments\n", function (err) {
-    fs.readdir(dir + "submissions", function(err, files){
-        var idx = 0;
-        if (netid != undefined){
-            while (files[idx] != netid) idx++;
-        }
-
-        main_test(idx, files, function(){
-            console.log("Done with tests");
-        })
-    });
-});
-*/
 
 main_test(netid, function(){
 })
@@ -118,21 +140,23 @@ function main_test(netid, cb){
 
 var test_save = function(bonus_amount, cb){
     click_button("//input[@name='savebutton']", function(){
-        browser.get(test_url, function(){
-            browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
-                browser.text(el, function(err, txt){
-                    if (txt.match(/Qiming/)){
-                        response.push({test: test_id++, msg: "bonus passed"});
-                        minus_points = minus_points - bonus_amount;
-                    } else {
-                        response.push({test: test_id++, msg: "Extra Credit: refreshed page"
-                                    + " and didn't find 'Qiming' anywhere."});
-                    }
+        handle_alert(function(popup){
+            browser.get(test_url, function(){
+                browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
+                    browser.text(el, function(err, txt){
+                        if (txt.match(/Qiming/)){
+                            response.push({test: test_id++, msg: "bonus passed"});
+                            minus_points = minus_points - bonus_amount;
+                        } else {
+                            response.push({test: test_id++, msg: "Extra Credit: refreshed page"
+                                        + " and didn't find 'Qiming' anywhere."});
+                        }
 
-                    cb();
-                })   
-            })  
-        })           
+                        cb();
+                    })   
+                })  
+            })
+        })         
     })
 }
 
@@ -146,12 +170,12 @@ var test_save = function(bonus_amount, cb){
  * Verify that '>' doesnt exist
  */
 var test_replace = function(cb){
-  var loss_amount = 10;
-  insert_into_replace_text_boxes("Lorem", "Qiming", true, loss_amount, function(){
+  var idx = 0;
+  insert_into_replace_text_boxes("Lorem", "Qiming", true, replace_points[idx++], function(){
     lots_of_backspace(function(){
-        insert_into_replace_text_boxes("ipsum", "<", false, loss_amount, function(){
+        insert_into_replace_text_boxes("ipsum", "<", false, replace_points[idx++], function(){
             lots_of_backspace(function(){
-                insert_into_replace_text_boxes("dolor", ">", false, loss_amount, function(){
+                insert_into_replace_text_boxes("dolor", ">", false, replace_points[idx++], function(){
                     cb();
                 })
             })
@@ -258,17 +282,17 @@ var expect_alert = function(cb){
  */
 var test_text_decoration = function(cb){
     var ctr = 0;
-    var loss_val = new Array(0.5,2,2,2,0.5)
+    var loss_val = test_decoration_points;
 
-    test_bold_italic(loss_val[ctr++], false, false, function(){
+    test_bold_italic(loss_val, ctr, false, false, function(){
         click_button("//input[@value='bold']", function(){
-            test_bold_italic(loss_val[ctr++], true, false, function(){
+            test_bold_italic(loss_val, ctr, true, false, function(){
                 click_button("//input[@value='italic']", function(){
-                    test_bold_italic(loss_val[ctr++], true, true, function(){
+                    test_bold_italic(loss_val, ctr, true, true, function(){
                         click_button("//input[@value='italic']", function(){
-                            test_bold_italic(loss_val[ctr++], true, false, function(){
+                            test_bold_italic(loss_val, ctr, true, false, function(){
                                 click_button("//input[@value='bold']", function(){
-                                    test_bold_italic(loss_val[ctr++], false, false, cb);
+                                    test_bold_italic(loss_val, ctr, false, false, cb);
                                 })
                             })
                         })
@@ -279,9 +303,9 @@ var test_text_decoration = function(cb){
     })  
 }
 
-function test_bold_italic(loss_amount, bold_expected, italic_expected, cb){
-    test_font_weight(loss_amount, bold_expected, function(){
-        test_italic(loss_amount, italic_expected, cb);
+function test_bold_italic(loss_val, ctr, bold_expected, italic_expected, cb){
+    test_font_weight(loss_val[ctr++], bold_expected, function(){
+        test_italic(loss_val[ctr++], italic_expected, cb);
     })
 }
 
@@ -347,7 +371,8 @@ var test_italic = function(loss_amount, expected, cb){
  * Tests whether the font family radio buttons do as they claim
  */
 var test_font_family = function(cb){
-    var loss_val = new Array(2,3);
+    var idx = 0;
+    var loss_val = test_font_color_points;
     browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
         el.getComputedCss("font-family", function(err, ff){
             if (ff.match(/comic/i))
@@ -420,8 +445,9 @@ function recursively_test_all_font_options(loss_val,elems, index, cb){
  * to do (in that it handles errors correctly as well)
  */
 var test_font_size = function(cb){
-    test_font_size_error_exists(2, "15", false, false, function(){
-        test_font_size_cornercases(2, cb);
+    var idx = 0
+    test_font_size_error_exists(test_font_size_points[idx++], "15", false, false, function(){
+        test_font_size_cornercases(test_font_size_points[idx++], cb);
     })
 }
 
@@ -521,15 +547,16 @@ var test_font_size_error_exists = function(loss_amount, num_chars, expected, pop
  * verify that color is blue
  */
 var test_color = function(cb){
-    var loss_val = new Array(2,5,5);
+    var idx = 0;
+
     // initially text should be green
-    assert_color(loss_val[0], "#008000", function() {
+    assert_color(test_color_points[idx++], "#008000", function() {
 
       // click on the red radio button
-      test_color_radio(loss_val[1],"//div[@id='color']/input[@value='Red']", "#ff0000", function(){
+      test_color_radio(test_color_points[idx++],"//div[@id='color']/input[@value='Red']", "#ff0000", function(){
 
         // click on the blue radio button
-        test_color_radio(loss_val[2],"//div[@id='color']/input[@value='Blue']", "#0000ff", function(){
+        test_color_radio(test_color_points[idx++],"//div[@id='color']/input[@value='Blue']", "#0000ff", function(){
 
           //execute callback
           cb();
