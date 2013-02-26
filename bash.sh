@@ -5,7 +5,7 @@ list=`ls -d submissions/*/`
 for D in $list
 do
     rm ../html/$1/script.js
-    rm ../html/$1/savePage.php
+    rm ../html/$1/saveFile.php
    
     #default savePage (in case student didn't submit one)
     cp ../html/saveFile.php ../html/$1/saveFile.php
