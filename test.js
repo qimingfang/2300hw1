@@ -99,11 +99,13 @@ function main_test(netid, cb){
                     test_font_size(function(){
                         test_text_decoration(function(){
                             test_replace(function(){
-                                browser.quit(function(){
-                                    var resp = JSON.stringify(response) + "\n";
-                                    var to_write = netid + "," + (100-minus_points) + "," + resp;
-				    console.log(to_write);
-				    cb();
+                                test_save(10, function(){
+                                    browser.quit(function(){
+                                        var resp = JSON.stringify(response) + "\n";
+                                        var to_write = netid + "," + (100-minus_points) + "," + resp;
+    				                    console.log(to_write);
+    				                    cb();
+                                    });
                                 });
                             });
                         });
@@ -114,8 +116,24 @@ function main_test(netid, cb){
     })
 }
 
-var test_save = function(cb){
+var test_save = function(bonus_amount, cb){
+    click_button("//input[@name='savebutton']", function(){
+        browser.get(test_url, function(){
+            browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
+                browser.text(el, function(err, txt){
+                    if (txt.match(/Qiming/)){
+                        response.push({test: test_id++, msg: "bonus passed"});
+                        minus_points = minus_points - bonus_amount;
+                    } else {
+                        response.push({test: test_id++, msg: "Extra Credit: refreshed page"
+                                    + " and didn't find 'Qiming' anywhere."});
+                    }
 
+                    cb();
+                })   
+            })  
+        })           
+    })
 }
 
 /**
