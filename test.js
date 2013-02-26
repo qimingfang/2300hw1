@@ -7,7 +7,7 @@
 
 var arguments = process.argv.splice(2);
 if (arguments.length < 2){
-  console.log("Format node test.js [test url] [browser_id]");
+  console.log("Format node test.js [test url] [browser_id] [optional: netid to start from]");
   process.exit(1);
 }
 
@@ -16,32 +16,21 @@ var assert = require('assert');
 var fs = require('fs');
 var util = require('util');
 
-var test_url = arguments[0]; 
+var test_url = arguments[0];
+var netid = arguments.length == 3 ? arguments[2] : undefined;
+
 var browser, version;
 var response = [];  // this is where the test results will be kept
 var test_id = 1;        // tests start with id = 1
 
-var expected_fonts = ["courier,monospace", "times new roman,serif", "arial,sans-serif"];
 var minus_points = 0;
 var caps;
-
-var pts_test_decoration = {
-    1 : {"pts" : 1, "desc" : "font weight should initially not be bold"},
-    2 : {"pts" : 1, "desc" : "font style should initially not be italic"},
-    3 : {"pts" : 1, "desc" : "after checking bold, font weight should be bold"},
-    4 : {"pts" : 1, "desc" : "after checking bold, font style should not be italic"},
-    5 : {"pts" : 1, "desc" : "after checking italic, font weight should still be bold"},
-    6 : {"pts" : 1, "desc" : "after checking italic, font style should be italic"},
-    7 : {"pts" : 1, "desc" : "after unchecking italic, font style should not be italic"},
-    8 : {"pts" : 1, "desc" : "after unchecking italic, font weight should still be bold"},
-    9 : {"pts" : 1, "desc" : "after unchecking bold, font style should not be italic"},
-   10 : {"pts" : 1, "desc" : "after unchecking bold, font weight should not be bold"},
-};
+var result_file = "results.csv";
 
 switch (arguments[1]){
   case "firefox":
     caps = {browserName: "firefox"};
-    caps.version = "9";
+    caps.version = "12";
     break;
   case "ie":
     caps = {browserName: "internet explorer"};
@@ -55,7 +44,7 @@ switch (arguments[1]){
     process.exit(1);
 }
 
-caps.platform = 'Mac 10.6';
+caps.platform = 'Windows 2008';
 
 var browser = webdriver.remote(
   "ondemand.saucelabs.com"
@@ -80,12 +69,21 @@ browser.on('command', function(meth, path){
  * test_replace
  */
 var dir = "/Applications/MAMP/htdocs/2300_test/";
+fs.writeFile(result_file, "netid, score, comments\n", function (err) {
     fs.readdir(dir + "submissions", function(err, files){
-        main_test(0, files, function(){
-            
+        var idx = 0;
+        if (netid != undefined){
+            while (files[idx] != netid) idx++;
+        }
+
+        console.log("starting from " + netid + "(" + idx + ")");
+
+        main_test(idx, files, function(){
+            console.log("Done with tests");
         })
     });
 });
+
 
 function main_test(idx, files, cb){
     if (idx == files.length) cb();
@@ -96,28 +94,38 @@ function main_test(idx, files, cb){
 
         var path = test_url + "/2300_test/submissions/" + files[idx] + "/index.php";
         caps.name = files[idx];
+        console.log ("Testing: " + files[idx]);
 
         browser.init(caps, function() {
             browser.get(path, function() {
-                test_color(function(){
-                    test_font_family(function(){
-                        test_font_size(function(){
-                            test_text_decoration(function(){
+                //test_color(function(){
+                    //test_font_family(function(){
+                        //test_font_size(function(){
+                            //test_text_decoration(function(){
                                 test_replace(function(){
-                                    browser.quit();
+                                    browser.quit(function(){
+                                        var resp = JSON.stringify(response) + "\n";
+                                        var to_write = files[idx] + "," + (100-minus_points) + "," + resp;
 
-                                    console.log(response);
-                                    console.log("[ " + files[idx] + "] Tests Completed: Total Score: "+(100-minus_points));
-                                    main_test(idx+1, files, cb);
-                                    
+                                        fs.appendFile(result_file, to_write, function (err) {
+                                          main_test(idx+1, files, cb);
+                                          console.log(to_write);
+
+                                        });
+
+                                    });
                                 });
-                            });
-                        });
-                    });
-                });
+                            //});
+                        //});
+                    //});
+                //});
             })
         })
     }
+}
+
+var test_save = function(cb){
+
 }
 
 /**
@@ -126,27 +134,58 @@ function main_test(idx, files, cb){
  * Verify that 'Qiming' exists once and is highlighted
  */
 var test_replace = function(cb){
-    var loss_amount = 10;
-  insert_text_into_input_box("original", "Lorem", function(){
-    insert_text_into_input_box("newtext", "Qiming", function(){
-      click_button("//input[@name='save' and @value='Replace']", function(){
-        browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
-            browser.text(el, function(err, txt){
-                if (txt.match(/Qiming/)){
-                    response.push({test: test_id++, msg: "passed"});
-                } else {
-                    response.push({test: test_id++, msg: "After replacing Lorem with Qiming, cannot "
-                                    + "find 'Qiming' in text.  Text Replace did not work. "
-                                    + " Grade deduction " + loss_amount + " points"});
-                    minus_points = minus_points + loss_amount;
-                }
-
-                cb();
+  var loss_amount = 10;
+  insert_into_replace_text_boxes("Lorem", "Qiming", true, loss_amount, function(){
+    lots_of_backspace(function(){
+        insert_into_replace_text_boxes("ipsum", "<", false, loss_amount, function(){
+            lots_of_backspace(function(){
+                insert_into_replace_text_boxes("dolor", ">", false, loss_amount, function(){
+                    cb();
+                })
             })
         })
-      });
-    });
-  });
+    })
+  })
+}
+
+var insert_into_replace_text_boxes = function(original, replace, replace_will_appear_in_text, loss_amount, cb){
+  insert_text_into_input_box("original", original, function(){
+    insert_text_into_input_box("newtext", replace, function(){
+      click_button("//input[@name='save' and @value='Replace']", function(){
+        handle_alert(function(alert_popped_up){
+            browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
+                browser.text(el, function(err, txt){
+                    if (replace_will_appear_in_text){
+                        if (txt.match(/Qiming/)){
+                            response.push({test: test_id++, msg: "passed"});
+                        } else {
+                            response.push({test: test_id++, msg: "After replacing Lorem with Qiming, cannot "
+                                        + "find 'Qiming' in text.  Text Replace did not work. "
+                                        + " Grade deduction " + loss_amount + " points"});
+                            minus_points = minus_points + loss_amount;
+                        }
+                    } else {                        
+                        if (txt.match(/</) || txt.match(/>/)){
+                            response.push({test: test_id++, msg: "Replacing should not tolerate '<' "
+                                        + "and '>' characters.  Text Replace did not work. "
+                                        + " Grade deduction " + loss_amount + " points"});
+                            minus_points = minus_points + loss_amount;
+                        } else {
+                            response.push({test: test_id++, msg: "passed"});
+                        }
+                    }
+
+                    cb();
+                })
+            })
+        })
+      })
+    })
+  })
+}
+
+var lots_of_backspace = function(cb){
+    insert_text_into_input_box_by_xpath("//input[@id='original']", "\uE003\uE003\uE003\uE003\uE003", cb);
 }
 
 /**
@@ -180,7 +219,7 @@ var backspace = function(cb){
     insert_text_into_input_box_by_xpath("//input[@name='font']", "\uE003", cb);
 }
 
-var expect_alert = function(cb){
+var handle_alert = function(cb){
     browser.alertText(function(err, txt){
         if (txt != undefined){
             browser.acceptAlert(function(err){
@@ -192,20 +231,32 @@ var expect_alert = function(cb){
     })
 }
 
+var expect_alert = function(cb){
+    handle_alert(function(has_popup){
+        click_button("//input[@value='Red']", function(){
+            handle_alert(function(has_popup_after_click_away){
+                cb(has_popup || has_popup_after_click_away);
+            })
+        })
+    })
+}
+
 /**
  * Tests that the text-decoration checkboxes do as they claim
  */
 var test_text_decoration = function(cb){
-    var ctr = 1;
-    test_bold_italic(ctr, false, false, function(){
+    var ctr = 0;
+    var loss_val = new Array(0.5,2,2,2,0.5)
+
+    test_bold_italic(loss_val[ctr++], false, false, function(){
         click_button("//input[@value='bold']", function(){
-            test_bold_italic(ctr, true, false, function(){
+            test_bold_italic(loss_val[ctr++], true, false, function(){
                 click_button("//input[@value='italic']", function(){
-                    test_bold_italic(ctr, true, true, function(){
+                    test_bold_italic(loss_val[ctr++], true, true, function(){
                         click_button("//input[@value='italic']", function(){
-                            test_bold_italic(ctr, true, false, function(){
+                            test_bold_italic(loss_val[ctr++], true, false, function(){
                                 click_button("//input[@value='bold']", function(){
-                                    test_bold_italic(ctr, false, false, cb);
+                                    test_bold_italic(loss_val[ctr++], false, false, cb);
                                 })
                             })
                         })
@@ -216,9 +267,9 @@ var test_text_decoration = function(cb){
     })  
 }
 
-function test_bold_italic(ctr, bold_expected, italic_expected, cb){
-    test_font_weight(pts_test_decoration[ctr++], bold_expected, function(){
-        test_italic(pts_test_decoration[ctr++], italic_expected, cb);
+function test_bold_italic(loss_amount, bold_expected, italic_expected, cb){
+    test_font_weight(loss_amount, bold_expected, function(){
+        test_italic(loss_amount, italic_expected, cb);
     })
 }
 
@@ -226,24 +277,32 @@ function test_bold_italic(ctr, bold_expected, italic_expected, cb){
  * Tests whether #text become bold when @expected, and
  * when it remains non-bold when !@expected
  */
-var test_font_weight = function(test, expected, cb){
-    var loss_amount = test["pts"];
-
+var test_font_weight = function(loss_amount, expected, cb){
     browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
         el.getComputedCss("font-weight", function(err, fw){
-            try{
-                assert.equal(fw, expected?"700":"400");
-                response.push({test: test_id++, msg: "passed"});
-            } catch (err){
-                minus_points = minus_points + loss_amount;
-                response.push({test: test_id++, msg: 
-                    (expected?"Text should have been bolded but was not ("+fw+")"
-                        :"Text should not have been bolded was.")
-                    + " grade deduction " + loss_amount + " points"
-                });
-            } finally{
-                cb();
+            
+            if (expected){
+                if (fw == "700" || fw == "bold"){
+                    response.push({test: test_id++, msg: "passed"});
+                } else {
+                    minus_points = minus_points + loss_amount;
+                    response.push({test: test_id++, msg: 
+                        "Text should have been bolded but was not (" + fw + ")."
+                        + " grade deduction " + loss_amount + " points"
+                    });
+                }
+            } else {
+                if (fw == "400" || fw == "normal" || fw == ""){
+                    response.push({test: test_id++, msg: "passed"});
+                } else {
+                    minus_points = minus_points + loss_amount;
+                    response.push({test: test_id++, msg: 
+                        "Text (" + fw + ") should not have been bolded."
+                        + " grade deduction " + loss_amount + " points"});
+                }
             }
+
+            cb();
         });
     });
 }
@@ -279,20 +338,18 @@ var test_font_family = function(cb){
     var loss_val = new Array(2,3);
     browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
         el.getComputedCss("font-family", function(err, ff){
-            try {
-                assert.equal(ff, '"Comic Sans MS"');
+            if (ff.match(/comic/i))
                 response.push({test: test_id++, msg: "passed"});
-            } catch(err){
+            else {
                 minus_points = minus_points + loss_val[0];
-                response.push({test: test_id++, msg: "Text should have started "
-                    + "with font family Comic Sans MS, but instead was " + ff
+                response.push({test: test_id++, msg: "Text should have been "
+                    + "Comic Sans MS initially, but instead was " + ff
                     + " grade deduction " + loss_val[0] + " points"
                 });
-            } finally {
-                browser.elementsByXPath("//input[@name='family']", function(err, elems){
-                    recursively_test_all_font_options(loss_val[1],elems, 0, cb);
-                });
             }
+            browser.elementsByXPath("//input[@name='family']", function(err, elems){
+                recursively_test_all_font_options(loss_val[1],elems, 0, cb);
+            });
         });
     });
 }
@@ -310,19 +367,37 @@ function recursively_test_all_font_options(loss_val,elems, index, cb){
     browser.clickElement(elems[index], function(err, c){
         browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
             el.getComputedCss("font-family", function(err, ff){
-                try{
-                    assert.equal(ff, expected_fonts[index]);
+
+                var matched = false;
+                expected = "";
+
+                switch (index){
+                    case 0:
+                        matched = ff.match(/courier/i);
+                        expected = "courier";
+                        break;
+                    case 1:
+                        matched = ff.match(/times/i);
+                        expected = "times";
+                        break
+                    case 2:
+                        matched = ff.match(/arial/i);
+                        expected = "arial";
+                        break;
+                }
+
+                if (matched){
                     response.push({test: test_id++, msg: "passed"});
-                } catch (err){
+                } else {
                     minus_points = minus_points + loss_val;
                     response.push({test: test_id++, msg: 
-                        "Expected font-family to be " + expected_fonts[index]
-                        + " but font-family was actually " + ff
-                        + " grade deduction " + loss_val + " points"
+                        "Expected font-family to contain '" + expected
+                        + "' but font-family was actually '" + ff
+                        + "' grade deduction " + loss_val + " points"
                     });
-                } finally{
-                    recursively_test_all_font_options(loss_val,elems, index+1, cb);
                 }
+               
+                recursively_test_all_font_options(loss_val,elems, index+1, cb);
             });
         });
     });
@@ -471,17 +546,21 @@ var test_color_radio = function(loss_amount, xpath, expected, cb){
 var assert_color = function(loss_amount, expected, cb){
   browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
     el.getComputedCss("color", function(err, c){
-        var actual_color = new RGBColor(c).toHex();
+        var actual_rgba = parseColor(c);
+        var expected_rgba = parseColor(expected);
+
         try {
-            assert.equal(actual_color, expected);
+            assert.equal(actual_rgba[0], expected_rgba[0]);
+            assert.equal(actual_rgba[1], expected_rgba[1]);
+            assert.equal(actual_rgba[2], expected_rgba[2]);
             response.push({test: test_id++, msg: "passed"});
         } catch (err){
             minus_points = minus_points + loss_amount;
             response.push({test: test_id++, msg:
-                "Color should be " 
-                + expected 
-                + " but is actually " + actual_color
-                + " grade deduction " + loss_amount + " points"
+                "Color should be rgb(" 
+                + expected_rgba 
+                + ") but is actually rgb(" + actual_rgba
+                + ") grade deduction " + loss_amount + " points"
             });
         } finally{
             cb();
@@ -490,290 +569,39 @@ var assert_color = function(loss_amount, expected, cb){
   });
 }
 
-/**
- * A color manipulation class
- * The student can represent the color of red as "#ff0000", 
- * 'red' or rgb(255,0,0). This class is here to translate the colors
- * from one color to another.
- *
- * Credits: http://www.phpied.com/files/rgbcolor/rgbcolor.js
- */
-function RGBColor(color_string) {
-    this.ok = false;
-
-    // strip any leading #
-    if (color_string.charAt(0) == '#') { // remove # if any
-        color_string = color_string.substr(1,6);
-    }
-
-    color_string = color_string.replace(/ /g,'');
-    color_string = color_string.toLowerCase();
-
-    // before getting into regexps, try simple matches
-    // and overwrite the input
-    var simple_colors = {
-        aliceblue: 'f0f8ff',
-        antiquewhite: 'faebd7',
-        aqua: '00ffff',
-        aquamarine: '7fffd4',
-        azure: 'f0ffff',
-        beige: 'f5f5dc',
-        bisque: 'ffe4c4',
-        black: '000000',
-        blanchedalmond: 'ffebcd',
-        blue: '0000ff',
-        blueviolet: '8a2be2',
-        brown: 'a52a2a',
-        burlywood: 'deb887',
-        cadetblue: '5f9ea0',
-        chartreuse: '7fff00',
-        chocolate: 'd2691e',
-        coral: 'ff7f50',
-        cornflowerblue: '6495ed',
-        cornsilk: 'fff8dc',
-        crimson: 'dc143c',
-        cyan: '00ffff',
-        darkblue: '00008b',
-        darkcyan: '008b8b',
-        darkgoldenrod: 'b8860b',
-        darkgray: 'a9a9a9',
-        darkgreen: '006400',
-        darkkhaki: 'bdb76b',
-        darkmagenta: '8b008b',
-        darkolivegreen: '556b2f',
-        darkorange: 'ff8c00',
-        darkorchid: '9932cc',
-        darkred: '8b0000',
-        darksalmon: 'e9967a',
-        darkseagreen: '8fbc8f',
-        darkslateblue: '483d8b',
-        darkslategray: '2f4f4f',
-        darkturquoise: '00ced1',
-        darkviolet: '9400d3',
-        deeppink: 'ff1493',
-        deepskyblue: '00bfff',
-        dimgray: '696969',
-        dodgerblue: '1e90ff',
-        feldspar: 'd19275',
-        firebrick: 'b22222',
-        floralwhite: 'fffaf0',
-        forestgreen: '228b22',
-        fuchsia: 'ff00ff',
-        gainsboro: 'dcdcdc',
-        ghostwhite: 'f8f8ff',
-        gold: 'ffd700',
-        goldenrod: 'daa520',
-        gray: '808080',
-        green: '008000',
-        greenyellow: 'adff2f',
-        honeydew: 'f0fff0',
-        hotpink: 'ff69b4',
-        indianred : 'cd5c5c',
-        indigo : '4b0082',
-        ivory: 'fffff0',
-        khaki: 'f0e68c',
-        lavender: 'e6e6fa',
-        lavenderblush: 'fff0f5',
-        lawngreen: '7cfc00',
-        lemonchiffon: 'fffacd',
-        lightblue: 'add8e6',
-        lightcoral: 'f08080',
-        lightcyan: 'e0ffff',
-        lightgoldenrodyellow: 'fafad2',
-        lightgrey: 'd3d3d3',
-        lightgreen: '90ee90',
-        lightpink: 'ffb6c1',
-        lightsalmon: 'ffa07a',
-        lightseagreen: '20b2aa',
-        lightskyblue: '87cefa',
-        lightslateblue: '8470ff',
-        lightslategray: '778899',
-        lightsteelblue: 'b0c4de',
-        lightyellow: 'ffffe0',
-        lime: '00ff00',
-        limegreen: '32cd32',
-        linen: 'faf0e6',
-        magenta: 'ff00ff',
-        maroon: '800000',
-        mediumaquamarine: '66cdaa',
-        mediumblue: '0000cd',
-        mediumorchid: 'ba55d3',
-        mediumpurple: '9370d8',
-        mediumseagreen: '3cb371',
-        mediumslateblue: '7b68ee',
-        mediumspringgreen: '00fa9a',
-        mediumturquoise: '48d1cc',
-        mediumvioletred: 'c71585',
-        midnightblue: '191970',
-        mintcream: 'f5fffa',
-        mistyrose: 'ffe4e1',
-        moccasin: 'ffe4b5',
-        navajowhite: 'ffdead',
-        navy: '000080',
-        oldlace: 'fdf5e6',
-        olive: '808000',
-        olivedrab: '6b8e23',
-        orange: 'ffa500',
-        orangered: 'ff4500',
-        orchid: 'da70d6',
-        palegoldenrod: 'eee8aa',
-        palegreen: '98fb98',
-        paleturquoise: 'afeeee',
-        palevioletred: 'd87093',
-        papayawhip: 'ffefd5',
-        peachpuff: 'ffdab9',
-        peru: 'cd853f',
-        pink: 'ffc0cb',
-        plum: 'dda0dd',
-        powderblue: 'b0e0e6',
-        purple: '800080',
-        red: 'ff0000',
-        rosybrown: 'bc8f8f',
-        royalblue: '4169e1',
-        saddlebrown: '8b4513',
-        salmon: 'fa8072',
-        sandybrown: 'f4a460',
-        seagreen: '2e8b57',
-        seashell: 'fff5ee',
-        sienna: 'a0522d',
-        silver: 'c0c0c0',
-        skyblue: '87ceeb',
-        slateblue: '6a5acd',
-        slategray: '708090',
-        snow: 'fffafa',
-        springgreen: '00ff7f',
-        steelblue: '4682b4',
-        tan: 'd2b48c',
-        teal: '008080',
-        thistle: 'd8bfd8',
-        tomato: 'ff6347',
-        turquoise: '40e0d0',
-        violet: 'ee82ee',
-        violetred: 'd02090',
-        wheat: 'f5deb3',
-        white: 'ffffff',
-        whitesmoke: 'f5f5f5',
-        yellow: 'ffff00',
-        yellowgreen: '9acd32'
-    };
-    for (var key in simple_colors) {
-        if (color_string == key) {
-            color_string = simple_colors[key];
-        }
-    }
-    // emd of simple type-in colors
-
-    // array of color definition objects
-    var color_defs = [
-        {
-            re: /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/,
-            example: ['rgb(123, 234, 45)', 'rgb(255,234,245)'],
-            process: function (bits){
-                return [
-                    parseInt(bits[1]),
-                    parseInt(bits[2]),
-                    parseInt(bits[3])
-                ];
-            }
-        },
-        {
-            re: /^(\w{2})(\w{2})(\w{2})$/,
-            example: ['#00ff00', '336699'],
-            process: function (bits){
-                return [
-                    parseInt(bits[1], 16),
-                    parseInt(bits[2], 16),
-                    parseInt(bits[3], 16)
-                ];
-            }
-        },
-        {
-            re: /^(\w{1})(\w{1})(\w{1})$/,
-            example: ['#fb0', 'f0f'],
-            process: function (bits){
-                return [
-                    parseInt(bits[1] + bits[1], 16),
-                    parseInt(bits[2] + bits[2], 16),
-                    parseInt(bits[3] + bits[3], 16)
-                ];
-            }
-        }
-    ];
-
-    // search through the definitions to find a match
-    for (var i = 0; i < color_defs.length; i++) {
-        var re = color_defs[i].re;
-        var processor = color_defs[i].process;
-        var bits = re.exec(color_string);
-        if (bits) {
-            channels = processor(bits);
-            this.r = channels[0];
-            this.g = channels[1];
-            this.b = channels[2];
-            this.ok = true;
-        }
-
-    }
-
-    // validate/cleanup values
-    this.r = (this.r < 0 || isNaN(this.r)) ? 0 : ((this.r > 255) ? 255 : this.r);
-    this.g = (this.g < 0 || isNaN(this.g)) ? 0 : ((this.g > 255) ? 255 : this.g);
-    this.b = (this.b < 0 || isNaN(this.b)) ? 0 : ((this.b > 255) ? 255 : this.b);
-
-    // some getters
-    this.toRGB = function () {
-        return 'rgb(' + this.r + ', ' + this.g + ', ' + this.b + ')';
-    }
-    this.toHex = function () {
-        var r = this.r.toString(16);
-        var g = this.g.toString(16);
-        var b = this.b.toString(16);
-        if (r.length == 1) r = '0' + r;
-        if (g.length == 1) g = '0' + g;
-        if (b.length == 1) b = '0' + b;
-        return '#' + r + g + b;
-    }
-
-    // help
-    this.getHelpXML = function () {
-
-        var examples = new Array();
-        // add regexps
-        for (var i = 0; i < color_defs.length; i++) {
-            var example = color_defs[i].example;
-            for (var j = 0; j < example.length; j++) {
-                examples[examples.length] = example[j];
-            }
-        }
-        // add type-in colors
-        for (var sc in simple_colors) {
-            examples[examples.length] = sc;
-        }
-
-        var xml = document.createElement('ul');
-        xml.setAttribute('id', 'rgbcolor-examples');
-        for (var i = 0; i < examples.length; i++) {
-            try {
-                var list_item = document.createElement('li');
-                var list_color = new RGBColor(examples[i]);
-                var example_div = document.createElement('div');
-                example_div.style.cssText =
-                        'margin: 3px; '
-                        + 'border: 1px solid black; '
-                        + 'background:' + list_color.toHex() + '; '
-                        + 'color:' + list_color.toHex()
-                ;
-                example_div.appendChild(document.createTextNode('test'));
-                var list_item_value = document.createTextNode(
-                    ' ' + examples[i] + ' -> ' + list_color.toRGB() + ' -> ' + list_color.toHex()
-                );
-                list_item.appendChild(example_div);
-                list_item.appendChild(list_item_value);
-                xml.appendChild(list_item);
-
-            } catch(e){}
-        }
-        return xml;
-
-    }
+var parseColor = function(color) {
+ 
+    var cache
+      , p = parseInt // Use p as a byte saving reference to parseInt
+      , color = color.replace(/\s\s*/g,'') // Remove all spaces
+    ;//var
+    
+    // Checks for 6 digit hex and converts string to integer
+    if (cache = /^#([\da-fA-F]{2})([\da-fA-F]{2})([\da-fA-F]{2})/.exec(color)) 
+        cache = [p(cache[1], 16), p(cache[2], 16), p(cache[3], 16)];
+        
+    // Checks for 3 digit hex and converts string to integer
+    else if (cache = /^#([\da-fA-F])([\da-fA-F])([\da-fA-F])/.exec(color))
+        cache = [p(cache[1], 16) * 17, p(cache[2], 16) * 17, p(cache[3], 16) * 17];
+        
+    // Checks for rgba and converts string to
+    // integer/float using unary + operator to save bytes
+    else if (cache = /^rgba\(([\d]+),([\d]+),([\d]+),([\d]+|[\d]*.[\d]+)\)/.exec(color))
+        cache = [+cache[1], +cache[2], +cache[3], +cache[4]];
+        
+    // Checks for rgb and converts string to
+    // integer/float using unary + operator to save bytes
+    else if (cache = /^rgb\(([\d]+),([\d]+),([\d]+)\)/.exec(color))
+        cache = [+cache[1], +cache[2], +cache[3]];
+        
+    // Otherwise throw an exception to make debugging easier
+    else throw Error(color + ' is not supported by $.parseColor');
+    
+    // Performs RGBA conversion by default
+    isNaN(cache[3]) && (cache[3] = 1);
+    
+    // Adds or removes 4th value based on rgba support
+    // Support is flipped twice to prevent erros if
+    // it's not defined
+    return cache.slice(0,3);
 }
