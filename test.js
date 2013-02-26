@@ -78,8 +78,6 @@ fs.writeFile(result_file, "netid, score, comments\n", function (err) {
             while (files[idx] != netid) idx++;
         }
 
-        console.log("starting from " + netid + "(" + idx + ")");
-
         main_test(idx, files, function(){
             console.log("Done with tests");
         })
@@ -88,13 +86,11 @@ fs.writeFile(result_file, "netid, score, comments\n", function (err) {
 */
 
 main_test(netid, function(){
-    console.log("Done with test for " + netid);
 })
 
 function main_test(netid, cb){
-    var path = test_url + "/2300_test/submissions/" + netid + "/index.php";
+    var path = test_url; // + "/2300_test/submissions/" + netid + "/index.php";
     caps.name = netid;
-    console.log ("Testing: " + netid);
 
     browser.init(caps, function() {
         browser.get(path, function() {
@@ -106,12 +102,8 @@ function main_test(netid, cb){
                                 browser.quit(function(){
                                     var resp = JSON.stringify(response) + "\n";
                                     var to_write = netid + "," + (100-minus_points) + "," + resp;
-
-                                    fs.appendFile(result_file, to_write, function (err) {
-                                        console.log(to_write);
-                                        cb();
-                                    });
-
+				    console.log(to_write);
+				    cb();
                                 });
                             });
                         });
