@@ -45,12 +45,13 @@ switch (arguments[1]){
 }
 
 caps.platform = 'Windows 2008';
+caps.public = "true";
 
 var browser = webdriver.remote(
   "ondemand.saucelabs.com"
   , 80
-  , "qimingfang"
-  , "9f13b601-9374-4764-8a39-c4074be2956b"
+  , "ambush276"
+  , "a166fc15-112c-4335-b96c-a2f2683f70e5"
 );
 
 browser.on('status', function(info){
@@ -113,8 +114,10 @@ main_test(netid, function(){
 function main_test(netid, cb){
     var path = test_url; // + "/2300_test/submissions/" + netid + "/index.php";
     caps.name = netid;
+   // response.push({})
 
-    browser.init(caps, function() {
+    browser.init(caps, function(err,sessionID) {
+        response.push({ "To Watch Grading and Detailed Results visit": "https://saucelabs.com/tests/"+sessionID});
         browser.get(path, function() {
             test_color(function(){
                 test_font_family(function(){
