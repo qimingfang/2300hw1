@@ -14,7 +14,7 @@ do
     cp $D/savePage.php ../html/$1/saveFile.php
     cp ../html/lorem.txt ../html/$1/lorem.txt
 
-    chomd 777 ../html/$1/savePage.php
+    chomd 777 ../html/$1/saveFile.php
     chmod 777 ../html/$1/lorem.txt
 
     node test.js $2/$1/index.php chrome $D
