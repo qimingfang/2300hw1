@@ -148,7 +148,7 @@ var test_save = function(bonus_amount, cb){
             sleep.sleep(3);
 
             browser.get(test_url, function(){
-                browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
+                browser.elementByXPath("//div[@id='text']", function(err, el){
                     browser.text(el, function(err, txt){
                         if (txt.match(/Qiming/)){
                             response.push({test: test_id++, msg: "bonus passed"});
