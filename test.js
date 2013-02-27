@@ -205,7 +205,6 @@ var insert_into_replace_text_boxes = function(original, replace, replace_will_ap
             } else {
                 browser.elementByXPath("//div[@id='text']/p/sam", function(err, el){
                     browser.text(el, function(err, txt){
-                        console.log(txt);
                         if (txt.match(/lester/)){
                             response.push({test: test_id++, msg: "Replacing should not tolerate '<' "
                                     + "and '>' characters.  Text Replace did not work. "
