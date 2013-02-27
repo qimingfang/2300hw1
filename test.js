@@ -66,7 +66,7 @@ browser.on('command', function(meth, path){
  * 1 point for initial font = comic sans
  * 2 points for each font family change
  */
-var test_font_color_points = new Array (1, 2);
+var test_font_color_points = new Array (3, 4);
 
 /**
  * 2 point that text should initially be unbold and unitalic
@@ -75,7 +75,7 @@ var test_font_color_points = new Array (1, 2);
  * 2 point that text is bold and not italic when italic unchecked
  * 2 point that text is unbold and unitalic when both unchecked
  */
-var test_decoration_points = new Array(1, 1, 3, 1, 1, 3, 1, 1, 1, 1);
+var test_decoration_points = new Array(2, 1, 3, 1, 1, 3, 1, 1, 1, 1);
 
 /**
  * 1 point that font is initially 15
@@ -90,16 +90,16 @@ var test_font_size_points = new Array(1, 4);
  * 5 points for color = red when red radio clicked
  * 5 points for color = blue when blue radio clicked
  */
-var test_color_points = new Array(2,5,5);
+var test_color_points = new Array(3,6,6);
 
 /**
  * 8 points for correct replace
  * 6 points for handling input with '<'
  * 6 points for handling input with '>'
  */
-var replace_points = new Array(8,6,6);
+var replace_points = new Array(13, 12);
 
-/** 
+/**
  * Main Test. Runs through tests in order:
  * test_color
  * test_font_family
@@ -124,7 +124,7 @@ function main_test(netid, cb){
                     test_font_size(function(){
                         test_text_decoration(function(){
                             test_replace(function(){
-                                test_save(10, function(){
+                                test_save(15, function(){
                                     browser.quit(function(){
                                         var resp = JSON.stringify(response) + "\n";
                                         var to_write = netid + "," + (100-minus_points) + "," + resp;
@@ -167,21 +167,16 @@ var test_save = function(bonus_amount, cb){
  * Test of replace functionality:
  * Replace text 'Lorem' with text 'Qiming' 
  * Verify that 'Qiming' exists
- * Replace ipsum with "Qiming<"
+ * Replace ipsum with "Qiming<qiming>"
  * Verify that '<' does not exist
- * Replace dolor with "Qiming<>"
  * Verify that '>' doesnt exist
  */
 var test_replace = function(cb){
   var idx = 0;
   insert_into_replace_text_boxes("Lorem", "Qiming", true, replace_points[idx++], function(){
     lots_of_backspace(function(){
-        insert_into_replace_text_boxes("ipsum", "<", false, replace_points[idx++], function(){
-            lots_of_backspace(function(){
-                insert_into_replace_text_boxes("dolor", ">", false, replace_points[idx++], function(){
-                    cb();
-                })
-            })
+        insert_into_replace_text_boxes("ipsum", "<sam>lester</sam>", false, replace_points[idx++], function(){
+            cb();
         })
     })
   })
@@ -192,9 +187,9 @@ var insert_into_replace_text_boxes = function(original, replace, replace_will_ap
     insert_text_into_input_box("newtext", replace, function(){
       click_button("//input[@name='save' and @value='Replace']", function(){
         handle_alert(function(alert_popped_up){
-            browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
-                browser.text(el, function(err, txt){
-                    if (replace_will_appear_in_text){
+            if (replace_will_appear_in_text){
+                browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
+                    browser.text(el, function(err, txt){
                         if (txt.match(/Qiming/)){
                             response.push({test: test_id++, msg: "passed"});
                         } else {
@@ -203,20 +198,27 @@ var insert_into_replace_text_boxes = function(original, replace, replace_will_ap
                                         + " Grade deduction " + loss_amount + " points"});
                             minus_points = minus_points + loss_amount;
                         }
-                    } else {                        
-                        if (txt.match(/</) || txt.match(/>/)){
+
+                        cb();
+                    });
+                });
+            } else {
+                browser.elementByXPath("//div[@id='text']/p/sam", function(err, el){
+                    browser.text(el, function(err, txt){
+                        console.log(txt);
+                        if (txt.match(/lester/)){
                             response.push({test: test_id++, msg: "Replacing should not tolerate '<' "
-                                        + "and '>' characters.  Text Replace did not work. "
-                                        + " Grade deduction " + loss_amount + " points"});
+                                    + "and '>' characters.  Text Replace did not work. "
+                                    + " Grade deduction " + loss_amount + " points"});
                             minus_points = minus_points + loss_amount;
                         } else {
                             response.push({test: test_id++, msg: "passed"});
                         }
-                    }
 
-                    cb();
+                        cb();
+                    })
                 })
-            })
+            }
         })
       })
     })
