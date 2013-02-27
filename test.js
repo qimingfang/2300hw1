@@ -14,6 +14,7 @@ if (arguments.length < 3){
 var webdriver = require('wd');
 var assert = require('assert');
 var fs = require('fs');
+var sleep = require('sleep');
 var util = require('util');
 
 var test_url = arguments[0];
@@ -50,8 +51,8 @@ caps.public = "true";
 var browser = webdriver.remote(
   "ondemand.saucelabs.com"
   , 80
-  , "ambush276"
-  , "a166fc15-112c-4335-b96c-a2f2683f70e5"
+  , "qimingfang"
+  , "9f13b601-9374-4764-8a39-c4074be2956b"
 );
 
 browser.on('status', function(info){
@@ -144,8 +145,10 @@ function main_test(netid, cb){
 var test_save = function(bonus_amount, cb){
     click_button("//input[@name='savebutton']", function(){
         handle_alert(function(popup){
+            sleep.sleep(3);
+
             browser.get(test_url, function(){
-                browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
+                browser.elementByXPath("//div[@id='text']", function(err, el){
                     browser.text(el, function(err, txt){
                         if (txt.match(/Qiming/)){
                             response.push({test: test_id++, msg: "bonus passed"});
