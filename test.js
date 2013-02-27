@@ -138,7 +138,7 @@ function main_test(netid, cb){
                     //});
                 //});
             //});
-        //})
+        })
     })
 }
 
