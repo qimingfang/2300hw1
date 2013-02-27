@@ -120,10 +120,10 @@ function main_test(netid, cb){
     browser.init(caps, function(err,sessionID) {
         response.push({ "To Watch Grading and Detailed Results visit": "https://saucelabs.com/tests/"+sessionID});
         browser.get(path, function() {
-            test_color(function(){
-                test_font_family(function(){
-                    test_font_size(function(){
-                        test_text_decoration(function(){
+            //test_color(function(){
+                //test_font_family(function(){
+                    //test_font_size(function(){
+                        //test_text_decoration(function(){
                             test_replace(function(){
                                 test_save(15, function(){
                                     browser.quit(function(){
@@ -134,11 +134,11 @@ function main_test(netid, cb){
                                     });
                                 });
                             });
-                        });
-                    });
-                });
-            });
-        })
+                        //});
+                    //});
+                //});
+            //});
+        //})
     })
 }
 
