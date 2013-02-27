@@ -14,6 +14,7 @@ if (arguments.length < 3){
 var webdriver = require('wd');
 var assert = require('assert');
 var fs = require('fs');
+var sleep = require('sleep');
 var util = require('util');
 
 var test_url = arguments[0];
@@ -144,6 +145,8 @@ function main_test(netid, cb){
 var test_save = function(bonus_amount, cb){
     click_button("//input[@name='savebutton']", function(){
         handle_alert(function(popup){
+            sleep.sleep(3);
+
             browser.get(test_url, function(){
                 browser.elementByXPath("//div[@id='text']/*[1]", function(err, el){
                     browser.text(el, function(err, txt){
